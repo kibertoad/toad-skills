@@ -5,7 +5,7 @@ description: Review a solution for bugs, implementation gaps, performance concer
 
 # kibertoad-review
 
-Review the given solution and report a prioritized list of issues with a clear recommendation on what to address first.
+Review a solution for bugs, implementation gaps, performance concerns, weak typing, low-value or redundant tests, and other code quality issues. Produce a prioritized list of findings with a recommendation on what to address.
 
 ## Scope of review
 
@@ -21,14 +21,11 @@ Look for issues in each of these categories. Don't pad the report — if a categ
 ## What to skip
 
 - Style nits already enforced by the project's linter/formatter.
-- Speculative "future-proofing" suggestions (extra config knobs, hooks for unbuilt features, abstractions for one caller).
 - Restating what the code does.
-- Suggestions that contradict explicit decisions visible in the diff or in nearby code/comments.
 
 ## How to investigate
 
 - Read the diff first, then read enough surrounding code to judge whether each finding is real in context (callers, types, tests, config).
-- For each potential issue, ask: *could I write a failing test or reproduction for this?* If not, lower its priority or drop it.
 - Verify claims against the actual code — don't report bugs that depend on a misreading.
 
 ## Output format
