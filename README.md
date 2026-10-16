@@ -8,6 +8,7 @@ A collection of Claude Code skills.
 - [`bulk-review`](./bulk-review/SKILL.md) — Review every open non-draft PR without the `reviewed` label a few at a time, each in its own worktree: run `/code-review high --fix`, settle unaddressed review comments, push the fixes, update the description, label the PR and resolve its conflicts.
 - [`bulk-inline-review`](./bulk-inline-review/SKILL.md) — Review every open non-draft PR without the `inline-reviewed` label and post the findings as inline comments on the diff. Changes no code.
 - [`bulk-resolve-conflicts`](./bulk-resolve-conflicts/SKILL.md) — Merge the base into every open PR that conflicts with it, resolve the conflicts keeping both sides' intent, push, and fix red CI until it is green.
+- [`cleanup-leftovers`](./cleanup-leftovers/SKILL.md): Find stale git worktrees, agent scratchpads and temp folders, and regenerable tool caches older than a given age, check that nothing is uncommitted, unpushed or in use, and remove them. Written for Windows.
 
 ## Installing a skill locally
 
