@@ -4,6 +4,8 @@ A collection of Claude Code skills.
 
 ## Available skills
 
+- [`dinorefurb-work-protocol`](./dinorefurb-work-protocol/SKILL.md) — Follow the Refurbished Dinosaurs restoration protocol, validate headless rust-dos probes, and report shared defects upstream.
+
 - [`kibertoad-review`](./kibertoad-review/SKILL.md) — Review a solution for bugs, gaps, perf concerns, weak types, low-value tests, and quality issues; produces a prioritized list and a recommendation.
 - [`bulk-review`](./bulk-review/SKILL.md) — Review every open non-draft PR without the `reviewed` label a few at a time, each in its own worktree: run `/code-review high --fix`, settle unaddressed review comments, push the fixes, update the description, label the PR and resolve its conflicts.
 - [`bulk-inline-review`](./bulk-inline-review/SKILL.md) — Review every open non-draft PR without the `inline-reviewed` label and post the findings as inline comments on the diff. Changes no code.
