@@ -1,6 +1,6 @@
 ---
 name: bulk-review
-description: Review every open non-draft PR in the current GitHub repo that lacks the "reviewed" label, a few at a time (default 3 concurrently, each in its own worktree). For each, runs /code-review high --fix on the PR, critically settles the PR's unaddressed review comments (a change, a different fix, or a reasoned reply), pushes the fixes to the PR's branch, brings the PR description up to date, adds the "reviewed" label, and then resolves any merge conflicts the PR has with its base. Then checks for newly eligible PRs every 5 minutes until stopped (`--once` to skip). Use when asked to bulk review, review all open PRs, or clear the unreviewed PR queue.
+description: Review every open PR in the current GitHub repo that lacks the "reviewed" label, a few at a time (default 3 concurrently, each in its own worktree). For each, runs /code-review high --fix on the PR, critically settles the PR's unaddressed review comments (a change, a different fix, or a reasoned reply), pushes the fixes to the PR's branch, brings the PR description up to date, adds the "reviewed" label, and then resolves any merge conflicts the PR has with its base. Then checks for newly eligible PRs every 5 minutes until stopped (`--once` to skip). Use when asked to bulk review, review all open PRs, or clear the unreviewed PR queue.
 ---
 
 # bulk-review
@@ -17,10 +17,9 @@ after the first report instead of watching for newly eligible PRs (section 6). `
 `--once`, and `--limit` counts PRs across all rounds: the run ends once that many have been
 started.
 
-Draft PRs are always ignored, since their authors are still pushing to them. No argument overrides
-this, including a PR number given explicitly: report a listed draft as skipped.
+Draft PRs are reviewed like any other open PR.
 
-PRs labelled `deferred` are always ignored too: they are parked on purpose. The same holds for a
+PRs labelled `deferred` are always ignored: they are parked on purpose. The same holds for a
 PR number given explicitly: report it as skipped (deferred).
 
 ## Concurrency
@@ -49,8 +48,7 @@ A PR whose base branch is the head branch of another queued PR belongs to that P
 uses one slot and runs in order, base first: the next PR in the stack starts only after the worker
 for the PR below it has finished. This keeps a fix or conflict resolution pushed to a base branch
 from landing while the PR above it is still being reviewed. Independent PRs and separate stacks
-fill the other slots. A draft in a stack is skipped; a non-draft PR stacked on it is still
-reviewed, against the draft's branch as its base.
+fill the other slots.
 
 ## Ground rules
 
@@ -73,12 +71,12 @@ These apply to the coordinator and to every worker. Pass them to each worker in 
 ## 1. Build the queue
 
 ```sh
-gh pr list --state open --limit 200 --json number,title,isDraft,labels,headRefName,baseRefName,isCrossRepository,maintainerCanModify
+gh pr list --state open --limit 200 --json number,title,labels,headRefName,baseRefName,isCrossRepository,maintainerCanModify
 ```
 
 Do not create or look up the `reviewed` label here. The worker creates it only if adding it fails.
 
-The queue is every open, non-draft PR with none of the `reviewed`, `in-review` or `deferred`
+The queue is every open PR with none of the `reviewed`, `in-review` or `deferred`
 labels, in ascending PR number. Skip
 a cross-repository PR whose `maintainerCanModify` is false, since fixes cannot be pushed to it,
 and report it. Group stacked PRs into stacks. Print the queue with its stacks and the concurrency.
@@ -102,9 +100,9 @@ and report both steps.
 
 Several runs of this skill can overlap, from different sessions or machines. A PR is claimed with
 the `in-review` label so that no other run picks it up. Right before starting a PR's worker,
-re-read it with `gh pr view <n> --json labels,isDraft,state`. If it now carries `in-review` or
-`reviewed`, another run has it: drop it from the queue. If it has been converted to a draft, is
-labelled `deferred`, or is no longer open, drop it and report it as skipped. Otherwise add the
+re-read it with `gh pr view <n> --json labels,state`. If it now carries `in-review` or
+`reviewed`, another run has it: drop it from the queue. If it is now
+labelled `deferred` or is no longer open, drop it and report it as skipped. Otherwise add the
 claim:
 
 ```sh
@@ -351,7 +349,7 @@ label already exists, retry the `gh pr edit`.
 
 Once the review's fixes are pushed (or there were none) and the PR is labelled, check whether the
 PR conflicts with its base. Skip this step when a follow-up PR was opened in 3d, or when
-`gh pr view <n> --json state,isDraft,baseRefName` shows the PR is no longer open or is now a draft.
+`gh pr view <n> --json state,baseRefName` shows the PR is no longer open.
 Use the `baseRefName` from that call, since the base may have been retargeted during the review.
 
 ```sh
