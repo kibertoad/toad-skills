@@ -46,6 +46,34 @@ Keep files within the protocol's 1,000-line limit and use its prescribed split/a
 
 ## Execute bounded, evidence-driven batches
 
+Plan a batch around one reviewable answer, including the directly related
+callers, helpers and fields it needs. Several findings about the same call
+chain can share one batch and one validation run; a function boundary alone
+does not require a commit. Keep unrelated questions, tooling and implementation
+separate. Record unresolved dependencies instead of expanding a batch indefinitely.
+
+Within the protocol's priorities, prefer work that removes a named dependency
+for several entries or closes a question. Before a deeper helper trace, name
+the part of `Settles it` it can answer. Track new citations separately from
+complete readings and closed questions; citation counts do not override blockers.
+
+Reuse local caller/operand indexes and retained reports when source fingerprint,
+loaded mappings, established entries, decoder/exporter versions, bounds and
+limits still match. Prefer a supported shared index command when available;
+do not assume a proposed command is installed. Rebuild stale corpora. Preserve
+raw candidates, unresolved transfers, undecoded ranges and failed controls as
+such. Keep original-derived indexes in the licensed evidence store and cite a
+committed regeneration procedure in findings. Cache hits do not raise claims.
+
+Run the repository's required gate for the files and contracts changed. Where
+it supports change-aware validation, documentation-only work keeps policy,
+documentation/citation, queue and affected schema checks; tooling adds synthetic
+controls and implementation adds the relevant build/tests. Unknown paths and
+gate changes use broader validation; CI retains required checks before merge.
+Follow stricter current repository instructions until the owner adopts a new
+gate. Never skip hooks or reuse a check across different trees, commands, tool
+versions or configurations. A working-tree pass does not validate another index.
+
 Choose work using the protocol's Order of work and the current slice/goal. A queue item asks one independently answerable question, cites entries, defines what settles it and names the blocked slice or `none`. Create an `unknown` entry before queuing behavior with no entry. Allocate stable IDs from `Next ID:`; never reuse them. Record failed attempts under `Tried:` with finding IDs, and blockers under `Waiting on:`. Retry with new evidence or a changed approach. Close an item by recording its answer in the spec and deleting it in the same batch.
 
 For research, state competing readings and seek evidence that could rule each out. Preserve unresolved alternatives and what would disprove them. Prefer static executable/data analysis, then isolated emulated calls, before full-game runs. A complete static reading can establish code-decided behavior without a full-game run. Partial readings remain supported with explicit remaining questions. Timing, OS, interrupts and hardware effects need appropriate runtime evidence. Apply the documentation standard's exact status rules.
