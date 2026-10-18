@@ -3,7 +3,9 @@
 Usage: python -I cache_scan.py <root> <output list file> <days>
 
 Walks with os.walk and prunes node_modules and .git trees, checking only node_modules/.cache at the top
-of each node_modules. Ages a folder by the newest file inside it, not by the folder's own timestamp.
+of each node_modules. Cargo target folders are not walked into; each build directory directly inside one
+(debug, release, a custom CARGO_TARGET_DIR such as target/perfwork) is listed and aged on its own.
+Ages a folder by the newest file inside it, not by the folder's own timestamp.
 Prints a summary per top-level folder under the root and writes the old paths, one per line, to the
 output file. It deletes nothing.
 """
@@ -32,7 +34,12 @@ def newest_and_size(path: str) -> tuple[float, int]:
     return newest, size
 
 
-found = []
+def is_cargo_target(base: str, full: str) -> bool:
+    # A folder named target with a Cargo.toml beside it, or with the CACHEDIR.TAG cargo writes into it.
+    return os.path.isfile(os.path.join(base, "Cargo.toml")) or os.path.isfile(os.path.join(full, "CACHEDIR.TAG"))
+
+
+found: list[tuple[str, str]] = []
 for base, dirs, _files in os.walk(ROOT):
     keep = []
     for d in dirs:
@@ -40,27 +47,34 @@ for base, dirs, _files in os.walk(ROOT):
         if d == "node_modules":
             cache = os.path.join(full, ".cache")
             if os.path.isdir(cache):
-                found.append(cache)
+                found.append((cache, "node_modules/.cache"))
         elif d == ".git":
             continue
         elif d in NAMES:
-            found.append(full)
+            found.append((full, d))
+        elif d == "target" and is_cargo_target(base, full):
+            try:
+                builds = [e.path for e in os.scandir(full) if e.is_dir(follow_symlinks=False)]
+            except OSError:
+                builds = []
+            found.extend((b, "cargo target") for b in builds)
         else:
             keep.append(d)
     dirs[:] = keep
 
 old, total = [], 0
-for path in found:
+for path, kind in found:
     newest, size = newest_and_size(path)
     if newest < CUTOFF:
-        old.append(path)
+        old.append((path, kind, size))
         total += size
 print(f"cache folders found: {len(found)}; older than {DAYS} days: {len(old)}, {total / 2**20:.1f} MB")
-by_top: dict[str, list[str]] = {}
-for path in old:
-    by_top.setdefault(os.path.relpath(path, ROOT).split(os.sep)[0], []).append(path)
-for top, paths in sorted(by_top.items()):
-    kinds = sorted({"node_modules/.cache" if os.path.basename(p) == ".cache" else os.path.basename(p) for p in paths})
-    print(f"  {top:<28} {len(paths):>5} folders  {', '.join(kinds)}")
+by_top: dict[str, list[tuple[str, str, int]]] = {}
+for entry in old:
+    by_top.setdefault(os.path.relpath(entry[0], ROOT).split(os.sep)[0], []).append(entry)
+for top, entries in sorted(by_top.items()):
+    kinds = sorted({kind for _path, kind, _size in entries})
+    mb = sum(size for _path, _kind, size in entries) / 2**20
+    print(f"  {top:<28} {len(entries):>5} folders  {mb:>10.1f} MB  {', '.join(kinds)}")
 with open(OUT, "w", encoding="utf-8") as fh:
-    fh.write("\n".join(old))
+    fh.write("\n".join(path for path, _kind, _size in old))

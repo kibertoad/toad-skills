@@ -1,6 +1,6 @@
 ---
 name: cleanup-leftovers
-description: Find and remove stale leftovers on this machine's drive, such as git worktrees, agent scratchpads and temp folders, and regenerable tool caches in repositories, older than a given age. Use when asked to clean up stale worktrees, old caches, scratchpads or leftovers ("clean up everything older than two days").
+description: Find and remove stale leftovers on this machine's drive, such as git worktrees, agent scratchpads and temp folders, regenerable tool caches and old Cargo build folders in repositories, older than a given age. Use when asked to clean up stale worktrees, old caches, old cargo builds, scratchpads or leftovers ("clean up everything older than two days").
 ---
 
 # Cleaning up leftovers
@@ -38,7 +38,7 @@ Look in `~\.claude` too, but expect nothing to remove there. `projects` holds tr
 
 ## 3. Regenerable caches in repositories
 
-Use the bundled scanner. It prunes `node_modules` and `.git` and finishes a large `C:\sources` in seconds:
+Use the bundled scanner. It prunes `node_modules`, `.git` and Cargo `target` trees and finishes a large `C:\sources` in seconds:
 
 ```powershell
 python -I "$HOME\.claude\skills\cleanup-leftovers\scripts\cache_scan.py" C:\sources "<scratchpad>\old-caches.txt" 2
@@ -46,7 +46,9 @@ python -I "$HOME\.claude\skills\cleanup-leftovers\scripts\cache_scan.py" C:\sour
 
 Do not scan with `Get-ChildItem -Recurse -Include <names>` or `-Filter` over the repositories. It walks every `node_modules` tree and took more than an hour on this machine before it was stopped; the Python walk took seconds.
 
-What the scanner counts as a cache: `.turbo`, `node_modules\.cache`, `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.vite`, `.parcel-cache`, `.nx`, `.eslintcache`.
+What the scanner counts as a cache: `.turbo`, `node_modules\.cache`, `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.vite`, `.parcel-cache`, `.nx`, `.eslintcache`, and old Cargo builds.
+
+Cargo builds are usually the largest item here: one `rust-dos\target` reached 41 GB. A folder counts as a Cargo target when it is named `target` and has a `Cargo.toml` beside it or a `CACHEDIR.TAG` inside. The scanner lists each build directory directly inside it (`debug`, `release`, a target triple, or a custom `CARGO_TARGET_DIR` like `target\perfwork` that parallel agent builds create) and ages each on its own, so a stale `perfwork` goes while a `release` built yesterday stays. Deleting one costs only a rebuild of that profile. Before deleting, check that no `cargo` or `rustc` process is running from that repository (`Get-Process cargo, rustc -ErrorAction SilentlyContinue`), since an old target can still be the output of a build that just started.
 
 Never treat these as caches:
 
