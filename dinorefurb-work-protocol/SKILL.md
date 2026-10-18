@@ -46,33 +46,13 @@ Keep files within the protocol's 1,000-line limit and use its prescribed split/a
 
 ## Execute bounded, evidence-driven batches
 
-Plan a batch around one reviewable answer, including the directly related
-callers, helpers and fields it needs. Several findings about the same call
-chain can share one batch and one validation run; a function boundary alone
-does not require a commit. Keep unrelated questions, tooling and implementation
-separate. Record unresolved dependencies instead of expanding a batch indefinitely.
+Plan a research batch around one reviewable answer to the items it takes up, including the directly related callers, helpers and fields that answer needs, and keep to the items one research batch may settle. A function boundary does not require a commit. Before following another helper, name the part of the item's `Settles it` that reading the helper can answer. A helper needed for that answer belongs in the reading, and an unrelated branch becomes a separate question in a separate batch. Keep tooling and implementation in batches of their own. If a dependency stays unresolved, record the bounded result and put the remaining question in a queue item rather than keeping a growing batch open.
 
-Within the protocol's priorities, prefer work that removes a named dependency
-for several entries or closes a question. Before a deeper helper trace, name
-the part of `Settles it` it can answer. Track new citations separately from
-complete readings and closed questions; citation counts do not override blockers.
+Between two items that the protocol's Order of work ranks equally, prefer the one whose answer closes a question or removes a named dependency from several entries. Never extend a reading only to cite more functions.
 
-Reuse local caller/operand indexes and retained reports when source fingerprint,
-loaded mappings, established entries, decoder/exporter versions, bounds and
-limits still match. Prefer a supported shared index command when available;
-do not assume a proposed command is installed. Rebuild stale corpora. Preserve
-raw candidates, unresolved transfers, undecoded ranges and failed controls as
-such. Keep original-derived indexes in the licensed evidence store and cite a
-committed regeneration procedure in findings. Cache hits do not raise claims.
+Repeated caller and operand searches reuse a local index or retained report when its inputs are unchanged. The index records the source fingerprint, the loaded address mappings, the decoder and exporter versions that built it, the established entries and ranges searched, the limits, and the positive controls and exclusions, and it is rebuilt when any of those change. Prefer a supported shared index command when the repository has one; do not assume a proposed command is installed. An index of candidates keeps its undecoded ranges, unresolved transfers and failed or missing controls. A cache hit never makes a candidate an established instruction or a negative search a proof, and a missed positive control rejects a negative result from the index as it does one from a fresh search. Indexes made from the original stay in `GAME_DIR`. Findings name the committed procedure that regenerates the index and state the result in their own words.
 
-Run the repository's required gate for the files and contracts changed. Where
-it supports change-aware validation, documentation-only work keeps policy,
-documentation/citation, queue and affected schema checks; tooling adds synthetic
-controls and implementation adds the relevant build/tests. Unknown paths and
-gate changes use broader validation; CI retains required checks before merge.
-Follow stricter current repository instructions until the owner adopts a new
-gate. Never skip hooks or reuse a check across different trees, commands, tool
-versions or configurations. A working-tree pass does not validate another index.
+Every batch's commit leaves the documentation check and the fast validation gate passing, and CI runs the required full checks before merge. Narrower checks apply only while a batch is in progress, and they follow the files it changes: a documentation-only batch runs the documentation, citation, queue and repository-policy checks, including any schema compilation it affects; a tooling batch adds its synthetic controls; an implementation batch adds the relevant build and tests. A batch that changes the gate's configuration, or files of more than one of those kinds, runs the fast gate as it goes. Follow stricter current repository instructions until the owner adopts a different gate, and never skip hooks. Reuse a successful check only on an exact match of its command, tool versions, configuration, any `GAME_DIR` builds it read, and either the inputs the gate's configuration lists for it or, where it lists none, the whole tree. Take those inputs from the configuration, never from a judgement about what changed. A staged-tree hook reuses a working-tree result only if the staged copy of what the check compares matches the working tree.
 
 Choose work using the protocol's Order of work and the current slice/goal. A queue item asks one independently answerable question, cites entries, defines what settles it and names the blocked slice or `none`. Create an `unknown` entry before queuing behavior with no entry. Allocate stable IDs from `Next ID:`; never reuse them. Record failed attempts under `Tried:` with finding IDs, and blockers under `Waiting on:`. Retry with new evidence or a changed approach. Close an item by recording its answer in the spec and deleting it in the same batch.
 
