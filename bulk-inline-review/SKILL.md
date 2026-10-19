@@ -51,6 +51,12 @@ These apply to the coordinator and to every worker. Pass them to each worker in 
 - Leave the user's own checkout untouched. A worker runs git commands only against its own
   worktree. The only exception is the coordinator's read-only snapshot check (section 2).
 - Comments follow the user's writing rules and carry no tool attribution.
+- Build output, caches and temp files from the review's own checks stay inside the worker's
+  worktree. Never point a build-output or cache setting at the user's checkout or another
+  worktree, and tell the `code-review` skill the same when invoking it.
+- When the repository or the user's instructions name a machine-wide lock for builds, tests or app
+  runs, every worker holds it as instructed. Before taking over a lock reported as stale, check
+  that no process started by another worker is still running; if one is, wait and retry.
 
 ## 1. Build the queue
 
@@ -121,7 +127,9 @@ context, or remove duplicates before posting if the review lets you approve its 
 ### 3c. Run the review
 
 Invoke the `code-review` skill through the Skill tool with args `high --comment <n>` (plus
-`--max-findings <value>` if given). Do not pass `--fix`. If it runs in the background, wait for it.
+`--max-findings <value>` if given). Do not pass `--fix`. If it runs in the background, wait for it
+to finish, including any checks it runs. A worker never sends its final message while the review
+or any other background task it started is still running.
 
 Afterwards:
 
@@ -146,6 +154,9 @@ If the label does not exist, create it with
 
 ### 3e. Result
 
+If the review built anything in the worktree, the worker deletes that regenerable build output (a
+`target`, `bin`/`obj`, `dist` or similar folder, never anything git tracks) before reporting.
+
 The worker's final message is one line: the PR number, its worktree `<path>`, the outcome
 (commented and labelled, labelled with no findings, or stopped), the number of inline comments
 posted and how many were skipped as duplicates of existing ones, the most severe finding in a few
@@ -153,9 +164,13 @@ words, and for a stop, the reason and what a human needs to do. It does not remo
 
 ## 4. Clean up (coordinator)
 
-When a worker reports, compare the user's checkout with the snapshot, release the PR's `in-review`
-claim, and remove the worker's worktree with `git worktree remove <path>` from outside it. If the
-harness still holds a lock on it, leave it and retry at the next cleanup. Delete the local branch
+When a worker reports, compare the user's checkout with the snapshot. If its result says the
+review was still running when it handed back, it is not done: keep the claim and resume the same
+worker with SendMessage, repeating the authorization line, so it waits for the review and finishes
+3c to 3e. Otherwise release the PR's `in-review` claim and remove the worker's worktree with
+`git worktree remove <path>` from outside it. The harness lock on the worktree can outlive the
+agent: when `remove` fails on it and the worker has finished, run `git worktree unlock <path>`
+first. Delete the local branch
 the harness created for the worktree once nothing references it; never delete a branch that existed
 before the run. Then start the next PR.
 

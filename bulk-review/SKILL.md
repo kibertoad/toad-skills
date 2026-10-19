@@ -50,6 +50,13 @@ for the PR below it has finished. This keeps a fix or conflict resolution pushed
 from landing while the PR above it is still being reviewed. Independent PRs and separate stacks
 fill the other slots.
 
+When a worker's result says it changed code (a fix, a removed helper, a changed signature), the
+coordinator passes a short summary of those changes in the brief of the next PR in its stack, so
+that worker's conflict step in 3f keeps both sides. The same goes across siblings: when one
+worker settles a question in a way another queued PR could reuse (the same fallback, the same
+pattern in a parallel code path), mention it in that PR's brief as something to weigh, not as an
+instruction.
+
 ## Ground rules
 
 These apply to the coordinator and to every worker. Pass them to each worker in its brief.
@@ -67,6 +74,16 @@ These apply to the coordinator and to every worker. Pass them to each worker in 
   worker's own isolated worktree, and a worker never edits, builds in or runs git commands against
   any other worktree. The only exception is the read-only snapshot check of the user's checkout
   (section 2).
+- Build output, caches and temp files stay inside the worker's own worktree. Never point a
+  build-output or cache setting (a target directory, an output path, a cache-dir override) at
+  the user's checkout or another worktree, and tell the `code-review` skill the same when invoking
+  it. Gitignored output written there does not show in `git status`, so the snapshot check cannot
+  catch it.
+- Only the coordinator adds or removes the `in-review` label. A worker never touches it.
+- When the repository or the user's instructions name a machine-wide lock for builds, tests or app
+  runs (a lock script, a lock file), every worker holds it as instructed. Before taking over a
+  lock reported as stale, check that no build, test or app process started by another worker is
+  still running (`tasklist`, `ps`). If one is, wait and retry instead of taking it.
 
 ## 1. Build the queue
 
@@ -86,13 +103,20 @@ With `--dry-run`, stop here.
 
 Before launching the first worker, record the user's checkout: its absolute path
 (`git rev-parse --show-toplevel`), its branch, `HEAD`, and `git status --porcelain=v1` (including
-untracked files). Save the snapshot to a file in the scratchpad and pass its path and the
-checkout's path to every worker.
+untracked files), ignoring `.claude/worktrees/`: the harness creates the workers' worktrees there,
+so they show up as untracked files in the user's checkout. Save the snapshot to a file in the
+scratchpad and pass its path and the checkout's path to every worker, with the same rule about
+`.claude/worktrees/`. A worker whose isolation blocks `git status` in the user's checkout compares
+the branch and `HEAD` by reading the refs under its `.git` directory.
 
 The coordinator compares the checkout with the snapshot again after each worker reports, and
-before starting each new worker. If the branch, `HEAD` or status differs, something wrote to the
-user's checkout: stop every running worker at once with TaskStop, start no new ones, revert
-nothing, and report what changed and which worker was running. Do not try to repair the checkout
+before starting each new worker. If the branch, `HEAD` or status differs, first read the checkout's
+reflog (`git reflog -n 10 --date=iso`). When it shows the user's own work (commits, a rebase or a
+checkout on branches no worker had touched, at times no worker could account for), take a new
+snapshot, tell the user, and go on; mention that the user is working on the queued PRs if those
+branches are in the queue. Otherwise something wrote to the user's checkout: stop every running
+worker at once with TaskStop, start no new ones, revert nothing, and report what changed and which
+worker was running. Do not try to repair the checkout
 without asking the user, unless the run is the only possible source of the change and the user's
 earlier state can be fully restored (for example, a clean checkout on the same commit): then move
 the stray changes into the responsible worker's worktree as a patch before restoring the checkout,
@@ -156,8 +180,11 @@ cross-repository PR, `gh pr checkout <n> --detach`. It confirms `HEAD` is the PR
 
 ### 3b. Run the review
 
-Invoke the `code-review` skill through the Skill tool with args `high --fix <n>`. If it runs in
-the background, wait for it to finish. Afterwards:
+Invoke the `code-review` skill through the Skill tool with args `high --fix <n>`, telling it to
+build only in this worktree (see the ground rules). If it runs in the background, wait for it to
+finish, including its own validation runs. A worker never sends its final message while the review
+or any other background task it started is still running: a worker that hands back early leaves
+the review's fixes uncommitted, and nothing else picks them up. Afterwards:
 
 1. Compare the user's checkout with the snapshot. If it changed, the review wrote there: stop at
    once, revert nothing, and report what changed. Do not commit or push anything.
@@ -291,7 +318,8 @@ for it instead of trying again. Do not weaken or delete tests to make a fix pass
 Other workers run the same validation and may launch the same app at the same time, so a failure
 can come from contention: a file or lock held by another process, a port already in use, a
 single-instance app or window that is already open, a busy audio or graphics device, a NuGet,
-package-store or build-server lock, or a timeout waiting on one of these. Such a failure says
+package-store or build-server lock, a full disk (several workers' build output at once), or a
+timeout waiting on one of these. Such a failure says
 nothing about the fix. Wait 30 to 120 seconds (pick a different delay each time, so workers do not
 retry in step) and run the same command again, up to 3 times. Treat the failure as real only when
 it repeats with no sign of contention, or when it points at the changed code.
@@ -394,8 +422,14 @@ When the repository asks for a post-commit process audit, the worker stops only 
 command line, parent or paths tie them to its own worktree. Processes tied to another worktree
 belong to a worker still running: leave them alone and do not log them.
 
-The worker's final message is one line: the PR number, its worktree `<path>`, the outcome (fixed and labelled, labelled
-with no changes, follow-up PR opened, or stopped), the commit pushed if any, the follow-up PR if
+Once nothing is left uncommitted in the worktree, the worker deletes its regenerable build output
+there (a `target`, `bin`/`obj`, `dist` or similar folder the build created, never anything git
+tracks). Each worktree's build can take gigabytes, and several finished worktrees can fill the disk
+for the workers still running.
+
+The worker waits until the review and every background task it started have finished before
+writing its result. The worker's final message is one line: the PR number, its worktree `<path>`,
+the outcome (fixed and labelled, labelled with no changes, follow-up PR opened, or stopped), the commit pushed if any, the follow-up PR if
 any, the conflict outcome from 3f (none, resolved with the merge commit and the files that
 conflicted, or left unresolved with the reason), the open questions it decided itself, the
 issues it filed or commented on, the PR comments it posted, the earlier PR comments it handled
@@ -406,12 +440,27 @@ and for a stop, the reason and what a human needs to do. It does not remove the 
 
 ## 4. Clean up (coordinator)
 
-When a worker reports, first compare the user's checkout with the snapshot (section 2). Then
-release the PR's `in-review` claim and remove the worker's worktree with
-`git worktree remove <path>` from outside it, if the harness has not already removed it. Delete
-the local branch the harness created for the worktree, if any, once nothing references it; never
-delete a branch that existed before the run. Leave a worktree in place when its worker stopped
-mid-merge or with uncommitted changes, and say so in the report. Then start the next ready PR.
+When a worker reports, first compare the user's checkout with the snapshot (section 2).
+
+A worker can come back before it is done: its result says the review or a validation run was
+still going, and the worktree holds uncommitted fixes. That is not a stop. Keep the claim, and
+resume the same worker with SendMessage, repeating the authorization line from section 3, and tell
+it to wait for or redo the pending step and then carry on from 3c. Do not do the remaining steps
+in the coordinator, and do not launch a fresh worker on that PR. Only a worker that reports a real
+stop (a failed check, a conflict it left, a denied write) counts as stopped.
+
+Then release the PR's `in-review` claim and remove the worker's worktree with
+`git worktree remove <path>` from outside it, if the harness has not already removed it. The
+harness locks each worktree for its agent and the lock can outlive the agent: when `remove` fails
+on a lock and the worker has finished with a clean worktree, run `git worktree unlock <path>`
+first. Delete the local branch the harness created for the worktree, if any, once nothing
+references it; never delete a branch that existed before the run. Leave a worktree in place when
+its worker stopped mid-merge or with uncommitted changes, and say so in the report.
+
+Before starting the next ready PR, check the free space on the disk that holds the worktrees.
+When it is too low for another build (less than a few times what one worker's build takes), delete
+the build output of finished, clean worktrees first, and start no new worker until there is room.
+Then start the next ready PR.
 
 ## 5. Report
 
