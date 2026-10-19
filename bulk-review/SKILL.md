@@ -83,7 +83,8 @@ These apply to the coordinator and to every worker. Pass them to each worker in 
 - When the repository or the user's instructions name a machine-wide lock for builds, tests or app
   runs (a lock script, a lock file), every worker holds it as instructed. Before taking over a
   lock reported as stale, check that no build, test or app process started by another worker is
-  still running (`tasklist`, `ps`). If one is, wait and retry instead of taking it.
+  still running (`tasklist`, `ps`). If one is, wait and retry instead of taking it. Pass this
+  rule to the `code-review` skill too: its own validation runs take the same lock.
 
 ## 1. Build the queue
 

@@ -56,7 +56,8 @@ These apply to the coordinator and to every worker. Pass them to each worker in 
   worktree, and tell the `code-review` skill the same when invoking it.
 - When the repository or the user's instructions name a machine-wide lock for builds, tests or app
   runs, every worker holds it as instructed. Before taking over a lock reported as stale, check
-  that no process started by another worker is still running; if one is, wait and retry.
+  that no process started by another worker is still running; if one is, wait and retry. Pass
+  this rule to the `code-review` skill too, since its own checks take the same lock.
 
 ## 1. Build the queue
 
