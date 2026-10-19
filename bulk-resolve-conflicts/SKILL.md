@@ -58,6 +58,16 @@ These apply to the coordinator and to every worker. Pass them to each worker in 
 - Leave the user's own checkout and its uncommitted files untouched. All work happens in the PR's
   own worktree, and a worker never edits, builds in or runs git commands against any other
   worktree.
+- Build output, caches and temp files stay inside the PR's worktree. Never point a build-output or
+  cache setting (a target directory, an output path, a cache-dir override) at the user's checkout
+  or another worktree.
+- When the repository or the user's instructions name a machine-wide lock for builds, tests or app
+  runs (a lock script, a lock file), every worker holds it as instructed. Before taking over a
+  lock reported as stale, check that no build, test or app process started by another worker is
+  still running (`tasklist`, `ps`). If one is, wait and retry instead of taking it.
+- A worker never sends its final message while a background task it started (a validation run,
+  the CI watch in 3e) is still running. A worker that hands back early leaves its merge or fix
+  half done.
 
 ## 1. Build the queue
 
@@ -166,7 +176,8 @@ failure here is the first lead for 3e. Do not weaken or delete tests to make the
 
 Other workers run the same validation at the same time, so a failure can come from contention: a
 file or lock held by another process, a port already in use, a single-instance app that is already
-open, a package-store or build-server lock, or a timeout waiting on one of these. Wait 30 to 120
+open, a package-store or build-server lock, a full disk (several workers' build output at once),
+or a timeout waiting on one of these. Wait 30 to 120
 seconds (a different delay each time) and run the same command again, up to 3 times. Treat the
 failure as real only when it repeats with no sign of contention, or when it points at the merged
 code.
@@ -221,6 +232,10 @@ Repeat until green. Stop and report, leaving the pushed merge in place, when:
 When the repository asks for a post-commit process audit, the worker stops only processes tied to
 its own worktree, and leaves processes tied to another `bulk-resolve-conflicts-<n>` worktree alone.
 
+Once nothing is left uncommitted in the worktree, the worker deletes its regenerable build output
+there (a `target`, `bin`/`obj`, `dist` or similar folder the build created, never anything git
+tracks). Several finished worktrees' builds can fill the disk for the workers still running.
+
 The worker's final message is one line: the PR number, why it was queued (conflict, red CI, or
 both), the outcome (resolved and pushed, clean merge pushed, CI fixed without a merge, already up
 to date, or stopped), the last commit pushed if any, the files that
@@ -230,10 +245,16 @@ does not remove the worktree.
 
 ## 4. Clean up (coordinator)
 
+A worker can come back before it is done: its result says a validation run or the CI watch was
+still going. That is not a stop. Resume the same worker with SendMessage and tell it to wait for
+or redo the pending step and carry on from there; do not finish its steps in the coordinator.
+
 When a worker reports, remove its worktree with `git worktree remove <path>` from outside it. Leave
 the worktree in place when its worker stopped mid-merge or with uncommitted changes, and say so in
-the report. Then start the next ready PR, re-checking the PR above it in its stack as described
-under Stacked PRs.
+the report. Before starting the next ready PR, check the free space on the disk that holds the
+worktrees. When it is too low for another build, delete the build output of finished, clean
+worktrees first, and start no new worker until there is room. Then start the next ready PR,
+re-checking the PR above it in its stack as described under Stacked PRs.
 
 ## 5. Report
 
